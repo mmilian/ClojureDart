@@ -1,0 +1,76 @@
+(ns bar.main
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:flutter/cupertino.dart" :as c]
+            ["package:salomon_bottom_bar/salomon_bottom_bar.dart" :as tab]
+            [cljd.flutter :as f]))
+
+
+(defonce app-state (atom {:selected-tab 0}))
+
+
+(defn nth-page [tab-number]
+  (m/Scaffold
+   .backgroundColor (if (even? tab-number) (.white m/Colors) (.pink m/Colors))
+   .body
+   (f/widget
+    ;; :watch [{:keys [selected-tab]} app-state]
+    :watch [tab (f/$ (some-> (f/<! app-state) :selected-tab))]
+    m/Center
+    (m/Text (str "Tab: " tab-number "=" tab)))))
+
+
+
+(def bottom-nab-bar-icons
+  (let [items [[ "Home" (c/CupertinoIcons.home) (.purple m/Colors)]
+               ["Categories" (c/CupertinoIcons.grid)  (.orange m/Colors)]
+               ["Leaderboard" (c/CupertinoIcons.chart_bar_square)  (.pink m/Colors)]]]
+    (->> items
+         (map
+          (fn [[text icon-data  color]]
+            (tab/SalomonBottomBarItem
+             .title (m/Text text) 
+             .icon (m/Icon icon-data)
+             .selectedColor color))))))
+
+
+(def botton-nav-bar
+  (f/widget
+   :watch [selected-tab (f/$ (some-> (f/<! app-state) :selected-tab))]
+   (m/Container
+    .color (.white m/Colors)
+    .child (tab/SalomonBottomBar
+            .curve (.easeIn m/Curves)
+            .currentIndex selected-tab
+            .onTap (fn [idx] (swap! app-state assoc :selected-tab idx))
+            .items bottom-nab-bar-icons))))
+
+
+(def home
+  (f/widget
+   :managed [controller (m/PageController)]
+   :bg-watcher ([selected-tab (f/$ (some->> (f/<! app-state) :selected-tab))]
+                (.jumpToPage  controller selected-tab))
+   (m/Scaffold
+    .body
+    (m/PageView
+     .allowImplicitScrolling true
+     .physics (m/NeverScrollableScrollPhysics)
+     .controller controller
+     .onPageChanged (fn [i] (dart:core/print (str "Changed: "  i)))
+     .children [(nth-page 0)
+                (nth-page 1)
+                (nth-page 2)]))
+   .bottomNavigationBar botton-nav-bar))
+
+
+(defn main []
+  (f/run
+   (m/MaterialApp
+    .title "Welcome to Flutter"
+    .theme (m/ThemeData .primarySwatch m.Colors/pink))
+   .home
+   (m/Scaffold
+    .appBar (m/AppBar
+             .title (m/Text "Welcome to ClojureDart")))
+   .body
+   home))
